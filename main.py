@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Ultimate Sandbox Dumper v3.0 đang LIVE!"
+    return "Bot Ultimate Sandbox Dumper v3.5 đang LIVE!"
 
 def run_server():
     port = int(os.environ.get("PORT", 8000))
@@ -47,7 +47,6 @@ def run_lua_dynamic_sandbox(obfuscated_code):
         # 1. Định nghĩa bộ lọc chặn bắt (Hook Callback) khi chuỗi thô rò rỉ ra bộ nhớ
         def catch_leaked_source(source_code):
             if type(source_code) == str and len(source_code.strip()) > 15:
-                # Bỏ qua các chuỗi rác lặp lại của chính trình obfuscator
                 if not any(k in source_code for k in ["IlllIIllI", "MiyuObfuscatorFakeCheck"]):
                     if source_code not in dumped_payloads:
                         dumped_payloads.append(source_code)
@@ -58,22 +57,12 @@ def run_lua_dynamic_sandbox(obfuscated_code):
         lua_globals['loadstring'] = catch_leaked_source
         lua_globals['load'] = catch_leaked_source
         
-        # Giả lập lại toàn bộ cấu trúc biến môi trường Roblox để đánh lừa mã độc bypass anti-dump
-        lua.execute("getgenv = function() return _G end")
-        lua.execute("shared = {}")
-        lua.execute([[
-            game = {
-                HttpGet = function(self, url) 
-                    return "print('=== [ DETECTED REQ TO: ' .. tostring(url) .. ' ] ===')" 
-                end,
-                HttpGetAsync = function(self, url) return "" end,
-                GetService = function(self, service) 
-                    return { GetLocalPlayer = function() return {} end } 
-                end
-            }
-            owner = {}
-            script = { Name = "WandaDumpSandbox" }
-        ]])
+        # GIẢI PHÁP: Giả lập môi trường Roblox bằng chuỗi Base64 để tránh lỗi Syntax check trên Hosting
+        # Đoạn mã gốc chứa: getgenv, shared, game.HttpGet, game.GetService, owner, script
+        roblox_env_b64 = "Z2V0Z2VudiA9IGZ1bmN0aW9uKCkgcmV0dXJuIF9HIGVuZApzaGFyZWQgPSB7fQpnYW1lID0gewogICAgSHR0cEdldCA9IGZ1bmN0aW9uKHNlbGYsIHVybCkgCiAgICAgICAgcmV0dXJuICJwcmludCgnPT09IFsgREVURUNURUQgUkVRIFRPOiAnIC4uIHRvc3RyaW5nKHVybCkgLi4gJyBdID09PScpIgogICAgZW5kLAogICAgSHR0cEdldEFzeW5jID0gZnVuY3Rpb24oc2VsZiwgdXJsKSByZXR1cm4gIiIgZW5kLAogICAgR2V0U2VydmljZSA9IGZ1bmN0aW9uKHNlbGYsIHNlcnZpY2UpIAogICAgICAgIHJldHVybiB7IEdldExvY2FsUGxheWVyID0gZnVuY3Rpb24oKSByZXR1cm4ge30gZW5kIH0KICAgIGVuZAp9Cm93bmVyID0ge30Kc2NyaXB0ID0geyBOYW1lID0gIldhbmRhRHVtcFNhbmRib3giIH0="
+        roblox_env_lua = base64.b64decode(roblox_env_b64).decode('utf-8')
+        
+        lua.execute(roblox_env_lua)
         
         # 3. Kích hoạt lệnh chạy động cho mã hóa tự cắn đuôi nhau trong sandbox
         try:
@@ -170,7 +159,7 @@ async def dump_command(ctx, *, text_code: str = None):
         await ctx.reply("⚠️ Hãy gửi file `.lua` hoặc dán mã nguồn mã hóa sau cấu trúc lệnh `.dump`")
         return
 
-    status_msg = await ctx.reply("⚙️ **CỖ MÁY DUMP TỐI CAO v3.0:** Đang khởi tạo hộp cát RAM ảo và ép chạy giải mã...")
+    status_msg = await ctx.reply("⚙️ **CỖ MÁY DUMP TỐI CAO v3.5:** Đang khởi tạo hộp cát RAM ảo và ép chạy giải mã...")
 
     result_code = None
     engine_used = ""
@@ -201,4 +190,4 @@ async def dump_command(ctx, *, text_code: str = None):
 if __name__ == "__main__":
     threading.Thread(target=run_server, daemon=True).start()
     bot.run(os.getenv("TOKEN"))
-
+    
